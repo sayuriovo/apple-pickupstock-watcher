@@ -29,11 +29,15 @@ When stock is found:
 3. Turn on **Developer mode** in the top right.
 4. Click **Load unpacked** and select the unzipped folder (the level where you can see `manifest.json`).
 
-Whenever you edit a file, go back to `chrome://extensions`, click the reload button ↻ on the extension card, then refresh the Apple buy page. Otherwise your changes won't take effect.
+All settings are entered on the extension's own page, so you don't need to edit any files. To open it, click the extension icon in the Chrome toolbar (if it is hidden, click the puzzle icon and pin Apple Pickup Watcher). The page has three sections on the left: **Status**, **History** and **Settings**.
+
+When you update the extension to a new version, go to `chrome://extensions`, click the reload button ↻ on the extension card, then refresh the Apple buy page.
+
+**Updating from 1.6 or earlier:** version 1.7 no longer reads settings from `main.js` and `background.js`. Enter your models, area, ntfy topic and Pushover keys once on the Settings page.
 
 ## Step 2: Choose the models to watch
 
-Open `main.js` and edit `PARTS` at the top. These are Apple's internal part numbers. Each color, capacity and version has its own.
+On the Settings page, enter them under **Part numbers**, one per line. These are Apple's internal part numbers. Each color, capacity and version has its own.
 
 **How to find a part number:**
 
@@ -43,24 +47,25 @@ Open `main.js` and edit `PARTS` at the top. These are Apple's internal part numb
 4. Click the `fulfillment-messages` (or `pickup-message`) request. In its URL, find the value after `parts.0=`, for example `MK1E4LL/A`. If it shows as `MK1E4LL%2FA`, the `%2F` is just `/`.
 5. To watch several colors or capacities, switch the configuration and repeat.
 
-Put them in `main.js`:
+Enter them one per line, then click **Save settings**:
 
-```js
-const PARTS = ["MK1E4LL/A", "MK1F4LL/A"];
+```
+MK1E4LL/A
+MK1F4LL/A
 ```
 
 ## Step 3: Choose the store area
 
-Also in `main.js`, edit `CENTERS`:
+On the Settings page, enter a 5-digit ZIP code or a store ID (such as `R191`) under **Search area**:
 
-```js
-const CENTERS = [{ location: "10001" }];
+```
+10001
 ```
 
 - For each center, Apple returns the **12 nearest** stores.
 - Each center costs one request per check, so **one center is recommended**.
 - To cover two areas, try a ZIP code halfway between them first. The "Watcher started" notification tells you how many stores are covered, and the buy page console (F12) lists them in a line starting with `[Apple Watcher] ... Stores:`.
-- You can add more centers, e.g. `[{ location: "10001" }, { location: "19103" }]`. Results are merged and duplicates removed, but every extra center adds requests and raises the chance of being blocked.
+- You can add more lines, e.g. `10001` and `19103`. Results are merged and duplicates removed, but every extra center adds requests and raises the chance of being blocked.
 
 ## Step 4: Set up phone notifications
 
@@ -76,11 +81,8 @@ Any app of these kinds will do in principle. The extension currently has built-i
 1. Install **ntfy** on your phone (App Store on iOS, Google Play on Android).
 2. Open the app, tap **+**, and subscribe to a topic. Make up a long, hard-to-guess name, such as `iphone-alert-k7x29q`.
    ntfy topics are public. Anyone who knows the name can read the messages, so avoid simple names.
-3. Open `background.js` and fill in the topic:
-   ```js
-   const NTFY_TOPIC = "iphone-alert-k7x29q";
-   ```
-4. **Test it**: run this in a terminal (or Command Prompt). If your phone shows "test", it works:
+3. On the Settings page, enter the topic under **ntfy topic** and click **Save settings**.
+4. **Test it**: click **Send test notification** on the Settings page. Or run this in a terminal (or Command Prompt). If your phone shows "test", it works:
    ```
    curl -d "test" ntfy.sh/iphone-alert-k7x29q
    ```
@@ -96,11 +98,7 @@ Pushover has a free trial. After that it is a one-time in-app purchase; check yo
    Then go to iPhone Settings → Notifications → Pushover and make sure **Allow Notifications**, **Sounds** and **Critical Alerts** are all on.
 3. **Get your User Key**: log in at pushover.net on your computer. The string under **Your User Key** on the right is it.
 4. **Get an API Token**: scroll to the bottom of pushover.net → **Create an Application/API Token** → enter any name (e.g. `apple-watcher`) → check the terms box → **Create Application**. The **API Token** at the top of the new page is it.
-5. **Fill them into `background.js`**:
-   ```js
-   const PUSHOVER_TOKEN = "your API Token";
-   const PUSHOVER_USER = "your User Key";
-   ```
+5. **Enter them on the Settings page** under **Pushover API token** and **Pushover user key**, then click **Save settings**. They are stored in this Chrome profile only.
 6. **Test from the website first**: on the pushover.net home page, use Push a Notification on the left, set Priority to **Emergency**, and send. Put your phone on silent; it should still ring, and stop once you open and acknowledge it.
 
 **Optional: use a longer alarm sound**
@@ -109,10 +107,7 @@ Pushover emergency alerts repeat at most every 30 seconds, and the built-in soun
 
 1. On pushover.net, find **Your Custom Sounds**, upload `alarm30.mp3`, and name it `alarm30`.
 2. Fully close the Pushover app on your phone and open it again so it syncs the new sound.
-3. Edit `background.js`:
-   ```js
-   const PUSHOVER_SOUND = "alarm30";
-   ```
+3. On the Settings page, set **Pushover sound** to `alarm30` and save.
 
 You can use ntfy and Pushover together. Every message goes to ntfy; only the "in stock" message also triggers the Pushover alarm.
 
@@ -123,7 +118,7 @@ With ntfy set up, besides stock alerts you also get:
 | Notification | When |
 |---|---|
 | Apple watcher started | The buy page is opened and the first check succeeds |
-| Apple watcher still running | Every 12 hours, to confirm it is still working (change `HEARTBEAT_HOURS` in `background.js`) |
+| Apple watcher still running | Every 12 hours, to confirm it is still working (change it on the Settings page) |
 | Apple watcher stopped | No successful check for a while (about 35 minutes by default), and an automatic page reload didn't fix it |
 | Apple watcher resumed | Checks work again after a stop |
 | Apple watcher blocked | Blocked by Apple 3 times in a row (it keeps retrying less often) |
@@ -137,7 +132,7 @@ When the whole browser is closed, the computer sleeps, or the network is down, t
 1. Go to healthchecks.io, sign up and log in.
 2. Click **Add Check** and give it any name, such as `apple-watcher`.
 3. Change the schedule (Period / Grace):
-   - **Period**: `10 minutes` (same as `INTERVAL_MIN` in `main.js`)
+   - **Period**: `10 minutes` (same as **Check every** on the Settings page)
    - **Grace**: `20 minutes`
 4. Copy the check's **Ping URL**, which looks like `https://hc-ping.com/xxxxxxxx-xxxx-...`.
 5. Open **Integrations** in your project, find **ntfy**, and click **Add Integration**:
@@ -145,16 +140,13 @@ When the whole browser is closed, the computer sleeps, or the network is down, t
    - Server: keep `https://ntfy.sh`
    - Save
 6. Go back to the check and make sure ntfy is turned on under Notifications.
-7. Put the URL in `background.js`:
-   ```js
-   const HEALTHCHECK_URL = "https://hc-ping.com/your-uuid";
-   ```
+7. Paste the URL into **Healthchecks.io ping URL** on the Settings page and save.
 
 From then on, if the computer goes offline or sleeps for about 30 minutes, Healthchecks.io sends you a "down" notification, and an "up" notification when it recovers. Healthchecks.io also supports Pushover, so you can add it under Integrations if you want offline alerts to ring too.
 
 ## Step 5: Start and test
 
-1. After editing files, click reload ↻ in `chrome://extensions`.
+1. Save your settings, then click **Send test notification** and make sure your phone gets it.
 2. Open the Apple iPhone buy page from Step 2.
 3. Wait about 20 seconds:
    - The tab title gets a prefix like `[No stock 01:04:36]`. This means the check worked.
@@ -184,6 +176,7 @@ Chrome Settings → Performance → under **"Always keep these sites active"**, 
 
 ## Daily use
 
+- The extension's **Status** page shows when the last check ran, how many stores were checked, what was in stock, and whether it is waiting after a block.
 - Leave the buy page tab alone. A separate, minimized Chrome window works well. If you close it by accident, the extension reopens it in the background.
 - **To stop watching, turn the extension off** in `chrome://extensions`. Closing the tab is not enough, because it will be reopened.
 - Checks happen about every 10 minutes. The page reloads itself about every hour (about every 20 minutes if it has to use the older endpoint). The exact times are randomized on purpose.
@@ -193,42 +186,43 @@ Chrome Settings → Performance → under **"Always keep these sites active"**, 
 
 ## Restock history
 
-The extension records when each store and model comes into stock and when it sells out. Click the extension icon in the Chrome toolbar to see it. If the icon is hidden, click the puzzle icon and pin Apple Pickup Watcher. You can also open it from the extension's **Details → Extension options**. The page shows:
+The extension records when each store and model comes into stock and when it sells out. Click the extension icon in the Chrome toolbar and choose **History**. The page shows:
 
-- a chart of how many restocks happened in each hour of the day, which shows when your nearby stores usually restock,
-- a table of every restock with its store, part number, start time, sell-out time and how long it lasted,
+- a chart of how many restocks happened in each hour of the day, which shows when your nearby stores usually restock (the highlighted bar is the current hour),
+- a table of every restock with its store, part number, when a check first saw it in stock, when a check first saw it sold out, and how long it lasted,
 - buttons to export the history as CSV or clear it.
+
+Notes:
+
+- Times are when a check saw the change, so each one can be off by up to one check interval.
+- The first check after installing only notes what is already in stock. That is not counted as a restock.
+- A row without a sell-out time says **In stock now** only while checks are running normally. If checks have stopped, it shows the time of the last check instead, since the extension cannot know what happened after that.
+- Clearing the history keeps track of what is in stock right now, so those items are not recorded as a new restock at the next check.
+- The page updates by itself while it is open.
 
 The history is kept in your browser only and is not sent anywhere. It covers only the time the extension was running and not blocked.
 
 ## Settings reference
 
-All settings are at the top of two files, inside the "edit this part only" block.
+Everything is on the Settings page. Saved settings apply at the next check; you don't need to reload anything. They are stored in this Chrome profile only.
 
-**`main.js`**
-
-| Setting | Default | What it does |
+| Field | Default | What it does |
 |---|---|---|
-| `PARTS` | two example part numbers | Models to watch (Step 2) |
-| `CENTERS` | `[{ location: "10001" }]` | Where to look; each center covers the 12 nearest stores (Step 3) |
-| `CPPART` | `"UNLOCKED/US"` | Carrier version. Usually leave as is |
-| `INTERVAL_MIN` | `10` | Average minutes between checks. Keep it at 5 or higher |
-| `JITTER` | `0.3` | Each wait is randomized by up to ±30% |
-| `RELOAD_MIN` | `60` | Average minutes between page reloads |
-| `RELOAD_MIN_FALLBACK` | `20` | Page reload interval when the last check had to use the older endpoint |
+| Part numbers | two example part numbers | Models to watch (Step 2) |
+| Search area | `10001` | ZIP codes or store IDs; each one covers the 12 nearest stores (Step 3) |
+| Check every (minutes) | `10` | Average minutes between checks. Keep it at 5 or higher |
+| Randomize by (%) | `30` | Each wait is randomized by up to this much (under Advanced) |
+| Reload page every (minutes) | `60` | Average minutes between page reloads (under Advanced) |
+| Reload on older endpoint (minutes) | `20` | Page reload interval when the last check had to use the older endpoint (under Advanced) |
+| Carrier version | `UNLOCKED/US` | Usually leave as is (under Advanced) |
+| ntfy topic | empty | Your ntfy topic. Empty means ntfy is off |
+| Pushover API token, user key | empty | Your Pushover keys. Both empty means Pushover is off |
+| Pushover sound | `persistent` | Use `alarm30` after uploading `alarm30.mp3` |
+| Healthchecks.io ping URL | empty | Empty means off |
+| "Still running" message every (hours) | `12` | How often to send "still running" |
+| Reopen the buy page | on | Reopen the buy page if its tab is closed or Chrome restarts |
 
-**`background.js`**
-
-| Setting | Default | What it does |
-|---|---|---|
-| `NTFY_TOPIC` | `""` | Your ntfy topic. Empty means ntfy is off |
-| `PUSHOVER_TOKEN`, `PUSHOVER_USER` | `""` | Your Pushover keys. Both empty means Pushover is off |
-| `PUSHOVER_SOUND` | `"persistent"` | Pushover sound. Use `"alarm30"` after uploading `alarm30.mp3` |
-| `HEALTHCHECK_URL` | `""` | Healthchecks.io ping URL. Empty means off |
-| `HEARTBEAT_HOURS` | `12` | How often to send "still running" |
-| `AUTO_REOPEN` | `true` | Reopen the buy page if its tab is closed or Chrome restarts |
-
-After changing any setting, reload the extension in `chrome://extensions` and refresh the buy page.
+**Restore defaults** on the Settings page resets these fields. It does not touch the restock history.
 
 ## FAQ
 
@@ -239,10 +233,10 @@ Yes, if you set up Pushover (Option B) and turned on Critical Alerts. The alarm 
 Open the iPhone buy page normally in Chrome and look at the area above the **Add to Bag** button. If you see both a **Delivers to ...** line and a **Pickup: ...** line, you are fine. If both lines are missing and only the Add to Bag button is shown, Apple is temporarily limiting your computer or network. Disable the extension and try again later.
 
 **The tab title shows `[Blocked ...]` or `[Waiting until ...]`. What now?**
-The extension waits and retries by itself, with longer waits each time (5, 10, 20, then every 30 minutes). It sends no requests while waiting, and sends an alert after 3 failures in a row. To clear the waiting state and try right away, close the buy page tab and open it again in a new tab. If it keeps happening, disable the extension first. Then check whether Apple is limiting you, as described in the question above. If you are limited, you can only wait and try again later. When it recovers, increase `INTERVAL_MIN`.
+The extension waits and retries by itself, with longer waits each time (5, 10, 20, then every 30 minutes). It sends no requests while waiting, and sends an alert after 3 failures in a row. To clear the waiting state and try right away, close the buy page tab and open it again in a new tab. If it keeps happening, disable the extension first. Then check whether Apple is limiting you, as described in the question above. If you are limited, you can only wait and try again later. When it recovers, increase **Check every** on the Settings page.
 
 **The tab title never changes?**
-Make sure you clicked reload on the extension after editing and refreshed the buy page. On the buy page, press F12 → Console and look for lines starting with `[Apple Watcher]`. If it says "No part numbers set", check `PARTS` in `main.js`. If it says "Another Apple buy page tab is doing the checks", another buy page tab is the one checking, which is normal.
+Open the extension's Status page first. Then, on the buy page, press F12 → Console and look for lines starting with `[Apple Watcher]`. If the title says `[No models set ...]` or `[No area set ...]`, fill in those fields on the Settings page. If it says "Another Apple buy page tab is doing the checks", another buy page tab is the one checking, which is normal.
 
 **ntfy works but Pushover does nothing?**
 In `chrome://extensions`, click the **Service Worker** link on the extension card to open the background console, then run the test again and look at the line starting with `pushover`. `"status":1` means it was sent. If it says the token or user is invalid, check for copy mistakes.
@@ -251,7 +245,7 @@ In `chrome://extensions`, click the **Service Worker** link on the extension car
 Check item 2 of Option B in Step 4 and make sure Critical Alerts are allowed.
 
 **What should I do before sharing this with friends?**
-Remove your own ntfy topic and Pushover keys from `background.js`. Anyone with your keys can send notifications to your phone.
+Nothing. Since 1.7 your ntfy topic and Pushover keys are stored in your browser, not in the project files, so the folder you share contains no keys. Send your friends the GitHub link and let them enter their own on the Settings page.
 
 ## Contact
 

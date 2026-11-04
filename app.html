@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apple Pickup Watcher</title>
+<link rel="stylesheet" href="ui/terrain.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body class="tu">
+<div class="shell">
+  <nav class="side" aria-label="Sections">
+    <p class="brand tu-label">Apple Pickup Watcher</p>
+    <ul class="tu-list tu-label">
+      <li><a href="#status" data-view="status"><span class="tu-num">01</span>Status</a></li>
+      <li><a href="#history" data-view="history"><span class="tu-num">02</span>History</a></li>
+      <li><a href="#settings" data-view="settings"><span class="tu-num">03</span>Settings</a></li>
+    </ul>
+    <p class="version tu-label tu-num" id="version"></p>
+  </nav>
+
+  <main class="main">
+    <!-- Status -->
+    <section class="view" id="view-status" aria-labelledby="h-status">
+      <p class="tu-crumb tu-label">// Apple Pickup Watcher / Status</p>
+      <h1 id="h-status">Status</h1>
+      <p class="state" id="state"></p>
+      <div class="figs" id="figs"></div>
+      <div class="block">
+        <h2 class="tu-label">// In stock at the last check</h2>
+        <div id="instock"></div>
+      </div>
+      <div class="block">
+        <h2 class="tu-label">// Watching</h2>
+        <ul class="tu-fields tu-label" id="watching"></ul>
+        <div class="row">
+          <a class="tu-btn tu-btn--pill tu-label" href="#settings">Change settings <span class="tu-btn__icon" aria-hidden="true">›</span></a>
+          <a class="tu-btn tu-btn--pill tu-label" id="open-buy" href="#" target="_blank" rel="noopener" hidden>Open buy page <span class="tu-btn__icon" aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+    </section>
+
+    <!-- History -->
+    <section class="view" id="view-history" aria-labelledby="h-history" hidden>
+      <p class="tu-crumb tu-label">// Apple Pickup Watcher / History</p>
+      <div class="head">
+        <h1 id="h-history">Restock history</h1>
+        <div class="row tu-label">
+          <button class="tu-btn" type="button" id="export">Export CSV</button>
+          <button class="tu-btn tu-btn--pill" type="button" id="clear">Clear history</button>
+        </div>
+      </div>
+      <ul class="tu-fields tu-label" id="summary"></ul>
+
+      <div class="block">
+        <h2 class="tu-label">// Restocks by hour of day</h2>
+        <p class="tu-hint">How many times something came into stock in each hour, your local time. The highlighted bar is the current hour.</p>
+        <div class="chart" id="chart" role="img"></div>
+      </div>
+
+      <div class="block">
+        <h2 class="tu-label">// All restocks</h2>
+        <div id="table"></div>
+        <p class="tu-hint" id="table-note"></p>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section class="view" id="view-settings" aria-labelledby="h-settings" hidden>
+      <p class="tu-crumb tu-label">// Apple Pickup Watcher / Settings</p>
+      <h1 id="h-settings">Settings</h1>
+      <p class="tu-hint lead">Saved settings apply at the next check. Nothing here leaves your browser except the notifications you set up.</p>
+
+      <form id="form" novalidate>
+        <fieldset class="tu-panel group">
+          <legend class="tu-label">// What to watch</legend>
+          <div class="tu-field">
+            <label class="tu-label" for="f-parts">Part numbers</label>
+            <textarea class="tu-input" id="f-parts" rows="3" spellcheck="false" aria-describedby="h-parts e-parts"></textarea>
+            <p class="tu-hint" id="h-parts">One per line, for example MK1E4LL/A. README Step 2 shows how to find them.</p>
+            <p class="tu-error" id="e-parts" hidden></p>
+          </div>
+          <div class="tu-field">
+            <label class="tu-label" for="f-centers">Search area</label>
+            <textarea class="tu-input" id="f-centers" rows="2" spellcheck="false" aria-describedby="h-centers e-centers"></textarea>
+            <p class="tu-hint" id="h-centers">A 5-digit ZIP code or a store ID such as R191, one per line. Each line covers the 12 nearest stores and adds one request per check.</p>
+            <p class="tu-error" id="e-centers" hidden></p>
+          </div>
+        </fieldset>
+
+        <fieldset class="tu-panel group">
+          <legend class="tu-label">// How often</legend>
+          <div class="tu-field narrow">
+            <label class="tu-label" for="f-interval">Check every (minutes)</label>
+            <input class="tu-input tu-num" id="f-interval" type="number" min="1" max="120" step="1" aria-describedby="h-interval e-interval">
+            <p class="tu-hint" id="h-interval">Each wait is randomized around this number. Below 5 minutes, Apple tends to block requests much sooner.</p>
+            <p class="tu-error" id="e-interval" hidden></p>
+          </div>
+          <details class="adv">
+            <summary class="tu-label">Advanced</summary>
+            <div class="grid">
+              <div class="tu-field">
+                <label class="tu-label" for="f-jitter">Randomize by (%)</label>
+                <input class="tu-input tu-num" id="f-jitter" type="number" min="0" max="50" step="1" aria-describedby="e-jitter">
+                <p class="tu-error" id="e-jitter" hidden></p>
+              </div>
+              <div class="tu-field">
+                <label class="tu-label" for="f-reload">Reload page every (minutes)</label>
+                <input class="tu-input tu-num" id="f-reload" type="number" min="10" max="240" step="1" aria-describedby="e-reload">
+                <p class="tu-error" id="e-reload" hidden></p>
+              </div>
+              <div class="tu-field">
+                <label class="tu-label" for="f-reload2">Reload on older endpoint (minutes)</label>
+                <input class="tu-input tu-num" id="f-reload2" type="number" min="5" max="120" step="1" aria-describedby="e-reload2">
+                <p class="tu-error" id="e-reload2" hidden></p>
+              </div>
+              <div class="tu-field">
+                <label class="tu-label" for="f-cppart">Carrier version</label>
+                <input class="tu-input" id="f-cppart" type="text" spellcheck="false" aria-describedby="e-cppart">
+                <p class="tu-error" id="e-cppart" hidden></p>
+              </div>
+            </div>
+          </details>
+        </fieldset>
+
+        <fieldset class="tu-panel group">
+          <legend class="tu-label">// Notifications</legend>
+          <div class="tu-field">
+            <label class="tu-label" for="f-ntfy">ntfy topic</label>
+            <input class="tu-input" id="f-ntfy" type="text" spellcheck="false" autocomplete="off" aria-describedby="h-ntfy e-ntfy">
+            <p class="tu-hint" id="h-ntfy">The topic you subscribed to in the ntfy app. Leave empty to turn ntfy off. Anyone who knows the topic can read it, so pick something hard to guess.</p>
+            <p class="tu-error" id="e-ntfy" hidden></p>
+          </div>
+          <div class="grid">
+            <div class="tu-field">
+              <label class="tu-label" for="f-ptoken">Pushover API token</label>
+              <input class="tu-input" id="f-ptoken" type="password" spellcheck="false" autocomplete="off" aria-describedby="e-ptoken">
+              <p class="tu-error" id="e-ptoken" hidden></p>
+            </div>
+            <div class="tu-field">
+              <label class="tu-label" for="f-puser">Pushover user key</label>
+              <input class="tu-input" id="f-puser" type="password" spellcheck="false" autocomplete="off" aria-describedby="e-puser">
+              <p class="tu-error" id="e-puser" hidden></p>
+            </div>
+          </div>
+          <div class="tu-field narrow">
+            <label class="tu-label" for="f-psound">Pushover sound</label>
+            <input class="tu-input" id="f-psound" type="text" spellcheck="false" aria-describedby="h-psound">
+            <p class="tu-hint" id="h-psound">Pushover is used only for "in stock" alerts, which ring until you open them. Use alarm30 after uploading alarm30.mp3 to Pushover.</p>
+          </div>
+          <div class="tu-field">
+            <label class="tu-label" for="f-hc">Healthchecks.io ping URL</label>
+            <input class="tu-input" id="f-hc" type="url" spellcheck="false" autocomplete="off" aria-describedby="h-hc e-hc">
+            <p class="tu-hint" id="h-hc">Optional. Warns you when the browser closes, the computer sleeps or the internet drops.</p>
+            <p class="tu-error" id="e-hc" hidden></p>
+          </div>
+          <div class="tu-field narrow">
+            <label class="tu-label" for="f-heartbeat">"Still running" message every (hours)</label>
+            <input class="tu-input tu-num" id="f-heartbeat" type="number" min="1" max="168" step="1" aria-describedby="e-heartbeat">
+            <p class="tu-error" id="e-heartbeat" hidden></p>
+          </div>
+        </fieldset>
+
+        <fieldset class="tu-panel group">
+          <legend class="tu-label">// Buy page</legend>
+          <label class="tu-switch tu-label"><input type="checkbox" id="f-reopen"><span class="tu-switch__track"></span>Reopen the buy page if its tab closes or Chrome restarts</label>
+          <p class="tu-hint">To stop watching while this is on, turn the extension off in chrome://extensions.</p>
+        </fieldset>
+
+        <div class="actions tu-label">
+          <button class="tu-btn" type="submit" id="save">Save settings</button>
+          <button class="tu-btn tu-btn--pill" type="button" id="test">Send test notification</button>
+          <button class="tu-btn tu-btn--pill" type="button" id="reset">Restore defaults</button>
+        </div>
+        <p class="tu-hint" id="test-result" role="status"></p>
+      </form>
+    </section>
+  </main>
+</div>
+
+<dialog class="tu-dialog" id="confirm" aria-labelledby="confirm-title">
+  <div class="tu-dialog__body">
+    <p class="tu-crumb tu-label" id="confirm-crumb">// Confirm</p>
+    <h2 class="tu-dialog__title" id="confirm-title"></h2>
+    <p id="confirm-text"></p>
+  </div>
+  <form method="dialog" class="tu-dialog__actions tu-label">
+    <button class="tu-btn tu-btn--pill" value="cancel">Cancel</button>
+    <button class="tu-btn" value="ok" id="confirm-ok"></button>
+  </form>
+</dialog>
+
+<div class="tu-toast tu-label" id="toast" role="status" hidden></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+/* Page layout for the extension page. Components and colors come from ui/terrain.css (terrain-ui). */
+@font-face {
+  font-family: "Saira";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 50% 125%;
+  src: url("fonts/saira.woff2") format("woff2-variations"), url("fonts/saira.woff2") format("woff2");
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-size: 15px; line-height: 1.5; }
+[hidden] { display: none !important; }
+
+.shell {
+  max-width: 1160px; margin: 0 auto; padding: 32px 16px 80px;
+  display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; align-items: start;
+}
+.side { position: sticky; top: 32px; display: grid; gap: 24px; }
+.brand { margin: 0; font-size: 13px; font-weight: 800; }
+.version { margin: 0; color: var(--tu-ink-2); font-size: 11px; }
+.main { min-width: 0; }
+
+@media (max-width: 760px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .side { position: static; }
+  .side .tu-list { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  .side .tu-list a { padding: 0 10px; gap: 8px; justify-content: center; }
+  .version { display: none; }
+}
+
+h1 { margin: 0 0 16px; font-size: 32px; font-weight: 800; font-stretch: 112%; line-height: 1.05; }
+h2 { margin: 0 0 12px; font-size: 12px; }
+.view { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
+.view > * { margin: 0; }
+.view h1 { margin: 0; }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.block { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
+.lead { max-width: 60ch; }
+
+/* Status line: a small accent square marks anything that needs a look; no red anywhere */
+.state { display: flex; gap: 10px; align-items: baseline; max-width: 60ch; font-size: 17px; }
+.state[data-tone="warn"]::before {
+  content: ""; flex: none; width: 12px; height: 12px; transform: translateY(1px);
+  background: var(--tu-accent); outline: 1px solid var(--tu-ink);
+}
+.state[data-tone="ok"]::before {
+  content: ""; flex: none; width: 12px; height: 12px; transform: translateY(1px);
+  border: 1px solid var(--tu-ink);
+}
+
+/* Big figures */
+.figs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+@media (max-width: 760px) { .figs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.fig { background: var(--tu-panel); padding: 16px; display: grid; gap: 4px; align-content: start; }
+.fig b { font-size: 30px; font-weight: 700; font-stretch: 112%; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.fig b small { font-size: 14px; font-weight: 600; margin-left: 4px; }
+.fig span { color: var(--tu-ink-2); }
+.fig em { font-style: normal; font-size: 13px; color: var(--tu-ink-2); }
+
+/* By-hour chart: ink bars, the current hour in the accent */
+.chart { display: grid; gap: 6px; }
+.bars, .ticks { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; }
+.bars { height: 140px; align-items: end; border-bottom: 1px solid var(--tu-line); }
+.bars i { display: block; background: var(--tu-ink); min-height: 2px; }
+.bars i.zero { background: var(--tu-line); }
+.bars i.now { background: var(--tu-accent); outline: 1px solid var(--tu-ink); }
+.ticks span { font-size: 11px; text-align: center; color: var(--tu-ink-2); font-variant-numeric: tabular-nums; }
+
+.tu-table { min-width: 680px; font-size: 14px; }
+.tu-table td { white-space: nowrap; }
+.tu-table td.open { font-weight: 700; }
+
+/* Settings form */
+form { display: grid; gap: 16px; }
+.group { border: 0; margin: 0; display: grid; gap: 20px; min-width: 0; }
+.group legend { float: left; width: 100%; padding: 0; margin: 0 0 4px; font-size: 12px; }
+.group legend + * { clear: both; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.narrow { max-width: 320px; }
+textarea.tu-input { padding-block: 10px; resize: vertical; font-family: var(--tu-wide); }
+.tu-input { width: 100%; }
+.adv summary { cursor: pointer; font-size: 12px; color: var(--tu-ink-2); }
+.adv[open] summary { margin-bottom: 16px; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; padding-top: 8px; }
+#test-result { min-height: 1.5em; }
+
+/* A warning that does not block saving: the same accent flag, quieter text */
+.tu-error.soft { color: var(--tu-ink-2); }

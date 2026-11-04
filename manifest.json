@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Apple Pickup Watcher",
-  "version": "1.6",
+  "version": "1.7",
   "description": "Watches Apple Store in-store pickup availability and pushes alerts via ntfy / Pushover.",
   "host_permissions": [
     "https://www.apple.com/*",
@@ -18,6 +18,7 @@
         "https://www.apple.com/shop/buy-iphone/*"
       ],
       "js": [
+        "config.js",
         "main.js"
       ],
       "world": "MAIN",
@@ -38,10 +39,10 @@
     "storage"
   ],
   "action": {
-    "default_title": "Apple Pickup Watcher: restock history"
+    "default_title": "Apple Pickup Watcher: status, history and settings"
   },
   "options_ui": {
-    "page": "history.html",
+    "page": "app.html",
     "open_in_tab": true
   }
 }

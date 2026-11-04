@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.7 (Nov 4, 2026)
+
+- Settings page. Models, search area, check interval, ntfy topic, Pushover keys, Healthchecks URL and the auto-reopen switch are now entered on the extension's own page instead of in `main.js` and `background.js`. Saved settings apply at the next check, with no reload. Fields are checked before saving, and a warning shows when the interval is below 5 minutes.
+- "Send test notification" button on the Settings page. It sends one message to each channel you set up and shows what each service answered. The Pushover test uses normal priority, so it does not ring.
+- Status page: whether it is watching, when the last check ran, how many stores were checked, what was in stock, and whether it is waiting after a block.
+- Restock history fixes:
+  - The page updates by itself while it is open.
+  - Export CSV always uses the current history. Before, it could export data from before a clear.
+  - Clearing the history no longer records items that are still in stock as a new restock at the next check.
+  - The first check after installing only notes what is already in stock. It is no longer counted as a restock.
+  - A row without a sell-out time says "In stock now" only while checks are running normally. Otherwise it shows the time of the last check.
+- New look for the extension page: one page with Status, History and Settings, light and dark themes, built with [terrain-ui](https://github.com/sayuriovo/terrain-ui). The Saira font is bundled (SIL Open Font License, see `fonts/`), so the page works offline.
+- Your ntfy topic and Pushover keys now live in your browser, not in the project files.
+
+**Updating from 1.6:** enter your settings once on the Settings page. Values you edited into `main.js` or `background.js` are no longer read.
+
 ## 1.6 (Oct 28, 2026)
 
 - Every check now tries the newer endpoint first. In 1.5, one failed check could switch a tab to the older endpoint for good, and the older one gets blocked much faster.

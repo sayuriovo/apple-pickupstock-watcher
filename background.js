@@ -1,44 +1,34 @@
-// ================== Notifications (edit this part only) ==================
-// ntfy: your own topic name. Leave "" to disable.
-const NTFY_TOPIC = "";
-
-// Pushover (optional, alarm-style alerts). Fill in both to enable.
-const PUSHOVER_TOKEN = "";  // API Token of your Pushover application
-const PUSHOVER_USER = "";   // Your Pushover User Key
-const PUSHOVER_SOUND = "persistent";  // Sound name. Change to "alarm30" after uploading alarm30.mp3
-
-// Healthchecks.io ping URL (optional). Alerts you when the browser is closed, the computer sleeps,
-// or the internet is down. Looks like "https://hc-ping.com/xxxxxxxx-xxxx-...". Leave "" to disable.
-const HEALTHCHECK_URL = "";
-
-const HEARTBEAT_HOURS = 12;  // Send a "still running" message this often
-const AUTO_REOPEN = true;    // Reopen the buy page if its tab is closed or Chrome restarts. To stop, turn the extension off.
-// =========================================================================
+// Settings are edited on the extension page (click the extension icon, then Settings) and saved
+// in chrome.storage.local under "settings". Defaults are in config.js.
+importScripts("config.js");
+const { mergeSettings } = self.ASW_CONFIG;
 
 const BUY_PREFIX = "https://www.apple.com/shop/buy-iphone/";
 const now = () => Date.now();
 const fmt = (t) => new Date(t).toLocaleString("en-US", { hour12: false });
 const store = chrome.storage.local;
+const getSettings = async () => mergeSettings((await store.get(["settings"])).settings);
 
-function notify(title, msg, url) {
-  if (NTFY_TOPIC) {
+async function notify(title, msg, url) {
+  const cfg = await getSettings();
+  if (cfg.ntfyTopic) {
     const headers = { Title: title };
     if (url) headers.Click = url;
-    fetch("https://ntfy.sh/" + encodeURIComponent(NTFY_TOPIC), { method: "POST", body: msg, headers })
+    fetch("https://ntfy.sh/" + encodeURIComponent(cfg.ntfyTopic), { method: "POST", body: msg, headers })
       .catch((err) => console.log("ntfy failed", err));
   }
 
   // Only "in stock" triggers Pushover: emergency priority, repeats every 30 s until acknowledged (up to 1 hour)
-  if (title === "iPhone in stock" && PUSHOVER_TOKEN && PUSHOVER_USER) {
+  if (title === "iPhone in stock" && cfg.pushoverToken && cfg.pushoverUser) {
     const body = new URLSearchParams({
-      token: PUSHOVER_TOKEN,
-      user: PUSHOVER_USER,
+      token: cfg.pushoverToken,
+      user: cfg.pushoverUser,
       title: "iPhone in stock!",
       message: msg,
       priority: "2",
       retry: "30",
       expire: "3600",
-      sound: PUSHOVER_SOUND,
+      sound: cfg.pushoverSound,
     });
     if (url) { body.set("url", url); body.set("url_title", "Open the Apple buy page"); }
     fetch("https://api.pushover.net/1/messages.json", { method: "POST", body })
@@ -46,6 +36,31 @@ function notify(title, msg, url) {
       .then((t) => console.log("pushover", t))
       .catch((err) => console.log("pushover failed", err));
   }
+}
+
+// "Send test notification" on the Settings page. Sends one plain message to each channel that is set up
+// and reports back what each service answered. The Pushover test uses normal priority, so it does not ring.
+async function sendTest() {
+  const cfg = await getSettings();
+  const result = { ntfy: "off", pushover: "off" };
+  const text = "Test from Apple Pickup Watcher. If you can read this, notifications work.";
+  const jobs = [];
+  if (cfg.ntfyTopic) {
+    jobs.push(fetch("https://ntfy.sh/" + encodeURIComponent(cfg.ntfyTopic), {
+      method: "POST", body: text, headers: { Title: "Apple watcher test" },
+    }).then((r) => { result.ntfy = r.ok ? "sent" : "failed (" + r.status + ")"; })
+      .catch(() => { result.ntfy = "failed (network)"; }));
+  }
+  if (cfg.pushoverToken && cfg.pushoverUser) {
+    const body = new URLSearchParams({
+      token: cfg.pushoverToken, user: cfg.pushoverUser, title: "Apple watcher test", message: text, priority: "0",
+    });
+    jobs.push(fetch("https://api.pushover.net/1/messages.json", { method: "POST", body })
+      .then((r) => { result.pushover = r.ok ? "sent" : "failed (" + r.status + ")"; })
+      .catch(() => { result.pushover = "failed (network)"; }));
+  }
+  await Promise.all(jobs);
+  return result;
 }
 
 const isBuyPage = (tab) => !!(tab && tab.url && tab.url.startsWith(BUY_PREFIX));
@@ -82,8 +97,14 @@ const HISTORY_MAX = 3000;
 async function recordHistory(available, t) {
   if (!Array.isArray(available)) return;
   const st = await store.get(["avail", "history"]);
-  const before = new Set(st.avail || []);
   const after = new Set(available.map((a) => a.store + "|" + a.part));
+  // The very first check only records what is already in stock. Stock that was there before watching began
+  // is not a restock, so it gets no "in" event.
+  if (!Array.isArray(st.avail)) {
+    await store.set({ avail: [...after], history: st.history || [] });
+    return;
+  }
+  const before = new Set(st.avail);
   const events = [];
   for (const k of after) if (!before.has(k)) events.push({ t, key: k, type: "in" });
   for (const k of before) if (!after.has(k)) events.push({ t, key: k, type: "out" });
@@ -100,6 +121,7 @@ chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
 // A successful check from the page: update status, send heartbeat, ping Healthchecks
 async function onCheckOk(m, tab) {
   const t = now();
+  const cfg = await getSettings();
   await recordHistory(m.available, t);
   const st = await store.get(["lastHeartbeat", "stalled"]);
   await store.set({
@@ -111,17 +133,19 @@ async function onCheckOk(m, tab) {
 
   if (!st.lastHeartbeat) {
     await store.set({ lastHeartbeat: t });
-  } else if (t - st.lastHeartbeat >= HEARTBEAT_HOURS * 3600 * 1000) {
+  } else if (t - st.lastHeartbeat >= cfg.heartbeatHours * 3600 * 1000) {
     notify("Apple watcher still running", `Still working. Last check ${fmt(t)}, ${m.stores} stores.`);
     await store.set({ lastHeartbeat: t });
   }
 
-  if (HEALTHCHECK_URL) fetch(HEALTHCHECK_URL).catch(() => {});
+  if (cfg.healthcheckUrl) fetch(cfg.healthcheckUrl).catch(() => {});
 }
 
 chrome.runtime.onMessage.addListener((m, sender, sendResponse) => {
   const tab = sender.tab;
   if (m.kind === "claim") { claim(tab).then(sendResponse); return true; }
+  if (m.kind === "config") { getSettings().then(sendResponse); return true; }
+  if (m.kind === "test") { sendTest().then(sendResponse); return true; }
   if (m.kind === "ok") onCheckOk(m, tab);
   else if (m.kind === "blocked") store.set({ blockedUntil: m.until });
   else if (m.title) notify(m.title, m.msg, m.url);
@@ -131,13 +155,14 @@ chrome.runtime.onMessage.addListener((m, sender, sendResponse) => {
 chrome.tabs.onRemoved.addListener(async (tabId, info) => {
   const st = await store.get(["watcherTabId", "active", "url"]);
   if (!st.active || st.watcherTabId !== tabId) return;
+  const { autoReopen } = await getSettings();
   await store.set({ watcherTabId: null });
   if (info.isWindowClosing) {
     // If Chrome is quitting, onStartup reopens the page next time. If only a window closed, reopen now.
-    setTimeout(async () => { if ((await chrome.windows.getAll()).length && AUTO_REOPEN) openBuyPage(st.url); }, 5000);
+    setTimeout(async () => { if ((await chrome.windows.getAll()).length && autoReopen) openBuyPage(st.url); }, 5000);
     return;
   }
-  if (AUTO_REOPEN) {
+  if (autoReopen) {
     await store.set({ lastOk: now() });  // give the reopened page time to start
     openBuyPage(st.url);
   } else {
@@ -149,7 +174,7 @@ chrome.tabs.onRemoved.addListener(async (tabId, info) => {
 // Chrome started: reopen the buy page if we were watching before
 chrome.runtime.onStartup.addListener(async () => {
   const st = await store.get(["active", "url"]);
-  if (st.active && AUTO_REOPEN) {
+  if (st.active && (await getSettings()).autoReopen) {
     await store.set({ lastOk: now(), repairTried: false, watcherTabId: null });
     openBuyPage(st.url);
   }

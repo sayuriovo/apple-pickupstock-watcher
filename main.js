@@ -1,18 +1,8 @@
 (() => {
-  // ================== Settings (edit this part only) ==================
-  // Part numbers to watch (one or more). See README, Step 2.
-  const PARTS = ["MK1E4LL/A", "MK1F4LL/A"];   // Example: iPhone Duo 256GB Star White, Night Sky
-
-  // Search centers. Apple returns the 12 nearest stores for each center; results are merged.
-  // Use either { location: "ZIP code" } or { store: "store ID" }.
-  const CENTERS = [{ location: "10001" }];   // Example: New York NY. One center = one request per check.
-
-  const CPPART = "UNLOCKED/US";  // Unlocked version. Usually leave as is.
-  const INTERVAL_MIN = 10;       // Average minutes between checks. Keep it at 5 or higher to avoid being blocked.
-  const JITTER = 0.3;            // Randomize each wait by up to ±30% so checks don't follow a fixed pattern.
-  const RELOAD_MIN = 60;         // Average minutes between page reloads.
-  const RELOAD_MIN_FALLBACK = 20; // Page reload interval when using the older endpoint, which needs fresh cookies.
-  // ====================================================================
+  // Settings come from the extension page (click the extension icon, then Settings).
+  // Defaults are in config.js. They are read again before every check, so saved changes apply at the next check.
+  const { DEFAULTS, mergeSettings } = window.ASW_CONFIG;
+  let cfg = mergeSettings(null);
 
   const SS = window.sessionStorage;
   const get = (k, d) => { try { return JSON.parse(SS.getItem("asw_" + k)) ?? d; } catch { return d; } };
@@ -42,6 +32,13 @@
     });
   }
 
+  // Ask the extension for the current settings. Keeps the last known settings if the extension does not answer.
+  async function loadSettings() {
+    const resp = await ask({ kind: "config" });
+    if (resp && typeof resp === "object") cfg = mergeSettings(resp);
+    return cfg;
+  }
+
   // Capture the x- headers from Apple's own pickup requests on this page (needed by the older endpoint)
   let xh = get("xh", {});
   const origFetch = window.fetch;
@@ -63,12 +60,12 @@
   const ENDPOINTS = {
     pickup: {
       path: "/shop/retail/pickup-message",
-      params: () => ({ pl: "true", "mts.0": "regular", cppart: CPPART }),
+      params: () => ({ pl: "true", "mts.0": "regular", cppart: cfg.cppart }),
       headers: () => ({}),
     },
     fulfillment: {
       path: "/shop/fulfillment-messages",
-      params: () => ({ fae: "true", pl: "true", "mts.0": "regular", "mts.1": "compact", cppart: CPPART }),
+      params: () => ({ fae: "true", pl: "true", "mts.0": "regular", "mts.1": "compact", cppart: cfg.cppart }),
       headers: () => xh,
     },
   };
@@ -77,7 +74,7 @@
     const ep = ENDPOINTS[name];
     const p = new URLSearchParams({ ...ep.params(), ...center });
     if (center.store) p.set("searchNearby", "true");
-    PARTS.forEach((part, i) => p.set(`parts.${i}`, part));
+    cfg.parts.forEach((part, i) => p.set(`parts.${i}`, part));
     const r = await origFetch(ep.path + "?" + p.toString(), { headers: ep.headers(), credentials: "include" });
     const text = await r.text();
     let data;
@@ -113,6 +110,18 @@
   }
 
   async function check() {
+    await loadSettings();
+    if (!cfg.parts.length) {
+      log("No part numbers set. Add them on the extension's Settings page.");
+      setTitle("No models set");
+      return;
+    }
+    if (!cfg.centers.length) {
+      log("No search area set. Add a ZIP code or store ID on the extension's Settings page.");
+      setTitle("No area set");
+      return;
+    }
+
     const until = get("blockedUntil", 0);
     if (Date.now() < until) {
       log("Backing off after being blocked. Next try after", hhmm(until));
@@ -130,7 +139,7 @@
     const stores = [];
     const seen = new Set();
     try {
-      for (const c of CENTERS) {
+      for (const c of cfg.centers) {
         for (const s of await fetchStores(c)) {
           if (!seen.has(s.storeName)) { seen.add(s.storeName); stores.push(s); }
         }
@@ -173,7 +182,7 @@
       set("started", true);
       log("Stores:", stores.map((s) => s.storeName).join(", "));
     }
-    send({ kind: "ok", stores: stores.length, interval: INTERVAL_MIN, url: PAGE_URL, available });
+    send({ kind: "ok", stores: stores.length, interval: cfg.intervalMin, url: PAGE_URL, available });
     const last = new Set(get("last", []));
     const fresh = hits.filter((h) => !last.has(h));
     if (fresh.length) notify("iPhone in stock", "In stock!\n" + fresh.join("\n"), PAGE_URL);
@@ -182,23 +191,27 @@
     setTitle(hits.length ? "IN STOCK" : "No stock");
   }
 
-  if (!PARTS.length) { log("No part numbers set. Edit PARTS in main.js."); return; }
-
   // Show the waiting state right away if we are still backing off from an earlier block
   if (Date.now() < get("blockedUntil", 0)) {
     setTimeout(() => setTitle("Waiting until " + hhmm(get("blockedUntil", 0))), 1000);
   }
 
-  // Random wait around the given number of minutes (±JITTER)
-  const randomWait = (min) => min * 60 * 1000 * (1 - JITTER + Math.random() * 2 * JITTER);
+  // Random wait around the given number of minutes (± the jitter percentage)
+  const randomWait = (min) => {
+    const j = Math.min(Math.max(Number(cfg.jitterPct) || 0, 0), 50) / 100;
+    return Math.max(Number(min) || DEFAULTS.intervalMin, 1) * 60 * 1000 * (1 - j + Math.random() * 2 * j);
+  };
 
-  // First check 20 seconds after page load, then at random intervals around INTERVAL_MIN.
+  // First check 20 seconds after page load, then at random intervals around the check interval.
   function loop() {
-    check().finally(() => setTimeout(loop, randomWait(INTERVAL_MIN)));
+    check().finally(() => setTimeout(loop, randomWait(cfg.intervalMin)));
   }
-  setTimeout(loop, 20 * 1000);
 
-  // Reload the page now and then. The older endpoint needs fresh cookies, so reload more often when using it.
-  const reloadMin = lastEndpoint() === "pickup" ? RELOAD_MIN : RELOAD_MIN_FALLBACK;
-  setTimeout(() => location.reload(), randomWait(reloadMin));
+  // Read the settings once at startup to set the reload timer. The older endpoint needs fresh cookies,
+  // so reload more often when using it.
+  loadSettings().then(() => {
+    setTimeout(loop, 20 * 1000);
+    const reloadMin = lastEndpoint() === "pickup" ? cfg.reloadMin : cfg.reloadMinFallback;
+    setTimeout(() => location.reload(), randomWait(reloadMin));
+  });
 })();
