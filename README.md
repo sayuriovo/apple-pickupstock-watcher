@@ -18,7 +18,7 @@ When stock is found:
 - This is an unofficial tool. It relies on undocumented endpoints on Apple's website and may break if Apple changes them. Every check uses `/shop/retail/pickup-message` first. It only tries the older `/shop/fulfillment-messages` when the newer one returns something unexpected. If Apple is limiting you (status 541), it waits instead of spending another request on the older endpoint.
 - Checking too often gets you temporarily blocked by Apple (status code 541; even normal browsing stops showing pickup info). The default is about once every 10 minutes, at random intervals. In the author's testing, about every 5 minutes with one search center ran for about two days with only occasional blocks. Going below 5 minutes is not recommended.
 - Chrome must stay open and the computer must not sleep. If the buy page tab is closed or Chrome restarts, the extension reopens it by itself.
-- Currently supports iPhone buy pages on the US Apple Store website only.
+- Currently supports iPhone buy pages on the US Apple Store website only, and has only been tested with US stores. Apple Store websites in other countries or regions have not been tested and may not work.
 
 ---
 
