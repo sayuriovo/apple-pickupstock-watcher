@@ -111,6 +111,13 @@
 
   async function check() {
     await loadSettings();
+    // Paused from the Status page: make no requests until it is resumed
+    const state = await ask({ kind: "state" });
+    if (state && state.paused) {
+      log("Paused on the Status page. No checks until it is resumed.");
+      setTitle("Paused");
+      return;
+    }
     if (!cfg.parts.length) {
       log("No part numbers set. Add them on the extension's Settings page.");
       setTitle("No models set");
@@ -212,6 +219,10 @@
   loadSettings().then(() => {
     setTimeout(loop, 20 * 1000);
     const reloadMin = lastEndpoint() === "pickup" ? cfg.reloadMin : cfg.reloadMinFallback;
-    setTimeout(() => location.reload(), randomWait(reloadMin));
+    // Skip the reload while paused, so a paused tab sends nothing at all
+    const reload = () => ask({ kind: "state" }).then((s) => {
+      if (s && s.paused) setTimeout(reload, randomWait(reloadMin)); else location.reload();
+    });
+    setTimeout(reload, randomWait(reloadMin));
   });
 })();

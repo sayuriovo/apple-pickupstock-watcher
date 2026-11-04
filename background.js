@@ -115,6 +115,22 @@ async function recordHistory(available, t) {
   await store.set({ avail: [...after], history: history.slice(-HISTORY_MAX) });
 }
 
+// Pause and resume from the Status page. While paused, the page makes no requests, the buy page is not
+// reopened, and the watchdog stays quiet. Resuming reopens the buy page if no buy page tab is open.
+async function setPaused(paused) {
+  if (paused) {
+    await store.set({ paused: true, pausedAt: now() });
+    return { paused: true };
+  }
+  const st = await store.get(["url", "active"]);
+  const update = { paused: false, pausedAt: 0, stalled: false, repairTried: false };
+  if (st.active) update.lastOk = now();  // give the page one interval before the watchdog looks again
+  await store.set(update);
+  if (st.url) await openBuyPage(st.url);
+  return { paused: false };
+}
+const isPaused = async () => !!(await store.get(["paused"])).paused;
+
 // Click the extension icon to see the restock history
 chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
 
@@ -146,6 +162,9 @@ chrome.runtime.onMessage.addListener((m, sender, sendResponse) => {
   if (m.kind === "claim") { claim(tab).then(sendResponse); return true; }
   if (m.kind === "config") { getSettings().then(sendResponse); return true; }
   if (m.kind === "test") { sendTest().then(sendResponse); return true; }
+  if (m.kind === "state") { isPaused().then((paused) => sendResponse({ paused })); return true; }
+  if (m.kind === "pause") { setPaused(true).then(sendResponse); return true; }
+  if (m.kind === "resume") { setPaused(false).then(sendResponse); return true; }
   if (m.kind === "ok") onCheckOk(m, tab);
   else if (m.kind === "blocked") store.set({ blockedUntil: m.until });
   else if (m.title) notify(m.title, m.msg, m.url);
@@ -153,10 +172,11 @@ chrome.runtime.onMessage.addListener((m, sender, sendResponse) => {
 
 // The watching tab was closed
 chrome.tabs.onRemoved.addListener(async (tabId, info) => {
-  const st = await store.get(["watcherTabId", "active", "url"]);
+  const st = await store.get(["watcherTabId", "active", "url", "paused"]);
   if (!st.active || st.watcherTabId !== tabId) return;
   const { autoReopen } = await getSettings();
   await store.set({ watcherTabId: null });
+  if (st.paused) return;  // paused on purpose: leave the tab closed
   if (info.isWindowClosing) {
     // If Chrome is quitting, onStartup reopens the page next time. If only a window closed, reopen now.
     setTimeout(async () => { if ((await chrome.windows.getAll()).length && autoReopen) openBuyPage(st.url); }, 5000);
@@ -173,8 +193,8 @@ chrome.tabs.onRemoved.addListener(async (tabId, info) => {
 
 // Chrome started: reopen the buy page if we were watching before
 chrome.runtime.onStartup.addListener(async () => {
-  const st = await store.get(["active", "url"]);
-  if (st.active && (await getSettings()).autoReopen) {
+  const st = await store.get(["active", "url", "paused"]);
+  if (st.active && !st.paused && (await getSettings()).autoReopen) {
     await store.set({ lastOk: now(), repairTried: false, watcherTabId: null });
     openBuyPage(st.url);
   }
@@ -186,8 +206,8 @@ chrome.alarms.get("watchdog", (a) => {
 });
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== "watchdog") return;
-  const st = await store.get(["lastOk", "interval", "active", "stalled", "repairTried", "blockedUntil", "watcherTabId", "url"]);
-  if (!st.active || st.stalled || !st.lastOk) return;
+  const st = await store.get(["lastOk", "interval", "active", "stalled", "repairTried", "blockedUntil", "watcherTabId", "url", "paused"]);
+  if (!st.active || st.stalled || !st.lastOk || st.paused) return;
   if (now() < (st.blockedUntil || 0) + 10 * 60 * 1000) return;  // waiting after a block; that has its own alert
   const limitMin = (st.interval || 10) * 3 + 5;
   const mins = Math.round((now() - st.lastOk) / 60000);

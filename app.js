@@ -28,6 +28,7 @@ function staleLimit(intervalMin) {
 
 function watchState(st, t) {
   const limit = staleLimit(st.interval);
+  if (st.paused) return { key: "paused", tone: "warn" };
   if (!st.lastOk) return { key: "idle", tone: "warn" };
   if ((st.blockedUntil || 0) > t) return { key: "waiting", tone: "warn", until: st.blockedUntil };
   if (st.stalled) return { key: "stalled", tone: "warn" };
@@ -158,7 +159,7 @@ if (typeof module !== "undefined") {
 // =====================================================================
 if (typeof chrome !== "undefined" && chrome.storage && typeof document !== "undefined") {
   const store = chrome.storage.local;
-  const KEYS = ["history", "avail", "lastOk", "interval", "stores", "active", "stalled", "blockedUntil", "url", "settings"];
+  const KEYS = ["history", "avail", "lastOk", "interval", "stores", "active", "stalled", "blockedUntil", "url", "settings", "paused", "pausedAt"];
   const $ = (id) => document.getElementById(id);
   let st = {};
 
@@ -196,6 +197,7 @@ if (typeof chrome !== "undefined" && chrome.storage && typeof document !== "unde
     const state = $("state");
     state.dataset.tone = ws.tone;
     state.textContent = {
+      paused: `Paused${st.pausedAt ? " since " + fmtStamp(st.pausedAt) : ""}. No checks run and the buy page is not reopened until you resume.`,
       idle: "Not watching yet. Open the Apple iPhone buy page for the models in Settings; the first check runs about 20 seconds after the page loads.",
       waiting: `Apple is limiting requests. Waiting until ${fmtTime(ws.until)} before the next try.`,
       stalled: `Checks stopped at ${fmtStamp(st.lastOk)} and reloading the page did not fix it. Check the computer and the Apple buy page.`,
@@ -246,6 +248,13 @@ if (typeof chrome !== "undefined" && chrome.storage && typeof document !== "unde
     ]);
     const open = $("open-buy");
     if (st.url) { open.href = st.url; open.hidden = false; } else open.hidden = true;
+
+    // Pause is a secondary action; Resume becomes the primary one while paused
+    const pb = $("pause");
+    pb.hidden = !st.lastOk && !st.paused;
+    pb.dataset.paused = st.paused ? "1" : "";
+    pb.className = st.paused ? "tu-btn tu-label" : "tu-btn tu-btn--pill tu-label";
+    pb.textContent = st.paused ? "Resume watching" : "Pause watching";
   }
 
   // ----- History -----
@@ -374,6 +383,14 @@ if (typeof chrome !== "undefined" && chrome.storage && typeof document !== "unde
     out.textContent = "Sending…";
     const res = await chrome.runtime.sendMessage({ kind: "test" });
     out.textContent = res ? `ntfy: ${res.ntfy} │ Pushover: ${res.pushover}. Check your phone.` : "The extension did not answer. Reload it in chrome://extensions and try again.";
+  });
+
+  // ----- Pause / resume -----
+  $("pause").addEventListener("click", async () => {
+    const resume = !!st.paused;
+    const res = await chrome.runtime.sendMessage({ kind: resume ? "resume" : "pause" });
+    if (!res) { toast("The extension did not answer. Reload it in chrome://extensions"); return; }
+    toast(resume ? "Resumed. The next check runs within one interval." : "Paused. No more checks until you resume.");
   });
 
   // ----- History actions -----

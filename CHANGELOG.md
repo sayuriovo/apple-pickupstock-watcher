@@ -5,6 +5,7 @@
 - Settings page. Models, search area, check interval, ntfy topic, Pushover keys, Healthchecks URL and the auto-reopen switch are now entered on the extension's own page instead of in `main.js` and `background.js`. Saved settings apply at the next check, with no reload. Fields are checked before saving, and a warning shows when the interval is below 5 minutes.
 - "Send test notification" button on the Settings page. It sends one message to each channel you set up and shows what each service answered. The Pushover test uses normal priority, so it does not ring.
 - Status page: whether it is watching, when the last check ran, how many stores were checked, what was in stock, and whether it is waiting after a block.
+- Pause and resume on the Status page. While paused, the buy page makes no requests, it is not reopened when its tab closes or Chrome restarts, and no "stopped" alert is sent. Resume watching starts checks again and reopens the buy page if no buy page tab is open. Before this, the only way to stop was turning the extension off in `chrome://extensions`.
 - Restock history fixes:
   - The page updates by itself while it is open.
   - Export CSV always uses the current history. Before, it could export data from before a clear.

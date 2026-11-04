@@ -176,9 +176,9 @@ Chrome Settings → Performance → under **"Always keep these sites active"**, 
 
 ## Daily use
 
-- The extension's **Status** page shows when the last check ran, how many stores were checked, what was in stock, and whether it is waiting after a block.
+- The extension's **Status** page shows when the last check ran, how many stores were checked, what was in stock, and whether it is waiting after a block. It also has the Pause watching / Resume watching button.
 - Leave the buy page tab alone. A separate, minimized Chrome window works well. If you close it by accident, the extension reopens it in the background.
-- **To stop watching, turn the extension off** in `chrome://extensions`. Closing the tab is not enough, because it will be reopened.
+- **To stop watching, press Pause watching on the Status page** (click the extension icon). Closing the tab is not enough, because it will be reopened. Resume watching starts again and reopens the buy page if needed. Turning the extension off in `chrome://extensions` also stops everything.
 - Checks happen about every 10 minutes. The page reloads itself about every hour (about every 20 minutes if it has to use the older endpoint). The exact times are randomized on purpose.
 - If checks stop for a while, the extension reloads or reopens the page once by itself, and only alerts you if that doesn't help.
 - You can open another Apple buy page tab to shop. Only one buy page tab does the checking, so this doesn't add requests.
